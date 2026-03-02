@@ -137,9 +137,70 @@ elif page == "Visualization 📊":
             + (ltv['expected_future_visits'] * ltv['total_lifetime_revenue']
             / ltv['total_lifetime_visits'].replace(0, 1))
         )
+        ltv["revenue_per_visit"]=ltv["total_lifetime_revenue"]/ltv["total_lifetime_visits"]
         st.dataframe(ltv.head())
-
-
+        avgrev_insurance=ltv.groupby('insurance_type')['total_lifetime_revenue'].mean()
+        avgrev_insurance_visit=ltv.groupby('insurance_type')['revenue_per_visit'].mean()
+        col1, col2 = st.columns([1, 1])
+    
+        with col1:
+            # Display the data in a table
+            st.dataframe(
+                avgrev_insurance.reset_index().rename(
+                    columns={'insurance_type': 'Insurance Type', 
+                            'total_lifetime_revenue': 'Average Revenue ($)'}
+                ),
+                use_container_width=True
+            )
+            st.dataframe(
+                avgrev_insurance_visit.reset_index().rename(
+                    columns={'insurance_type': 'Insurance Type', 
+                            'revenue_per_visit': 'Average Revenue per Visit ($)'}
+                ),
+                use_container_width=True
+            )
+            
+            # Show summary statistics
+            st.info(f"**Overall Average Revenue:** ${df['total_lifetime_revenue'].mean():,.2f}")
+        
+        with col2:
+            # Create the pie chart
+            fig5, ax5 = plt.subplots(figsize=(10, 8))
+            fig6, ax6 = plt.subplots(figsize=(10, 8))
+            
+            # Create pie chart
+            colors = ['#ff9999', '#66b3ff', '#99ff99', '#ffcc99']
+            wedges, texts, autotexts = ax5.pie(
+                avgrev_insurance.values,
+                labels=avgrev_insurance.index,
+                autopct='%1.1f%%',
+                colors=colors,
+                startangle=90,
+                textprops={'fontsize': 12}
+            )
+            colors = ['#ff9999', '#66b3ff', '#99ff99', '#ffcc99']
+            wedges, texts, autotexts = ax6.pie(
+                avgrev_insurance_visit.values,
+                labels=avgrev_insurance_visit.index,
+                autopct='%1.1f%%',
+                colors=colors,
+                startangle=90,
+                textprops={'fontsize': 12}
+            )
+            # Add title
+            ax5.set_title('Average Revenue Distribution by Insurance Type', 
+                        fontsize=16, fontweight='bold', pad=20)
+            ax6.set_title('Average Revenue Distribution per Visit by Insurance Type', 
+                        fontsize=16, fontweight='bold', pad=20)
+            
+            # Make the percentage text more readable
+            for autotext in autotexts:
+                autotext.set_color('white')
+                autotext.set_fontweight('bold')
+            
+            # Display the chart in Streamlit
+            st.pyplot(fig5)
+            st.pyplot(fig6)
     with tab3:
         st.subheader("Correlation Matrix")
         fig3, ax3 = plt.subplots(figsize=(10, 6))
