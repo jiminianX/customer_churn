@@ -174,8 +174,10 @@ elif page == "Visualization 📊":
         display_index = churn_counts.index.map(lambda x: 'churned (left)' if x == 'Yes' else 'retained (stayed)')
         fig1, ax1 = plt.subplots(figsize=(8, 5))
         colors = ['#2ecc71', '#e74c3c']
-        ax1.pie(churn_counts.values, labels=display_index, autopct='%1.1f%%',
+        wedges, texts, autotexts = ax1.pie(churn_counts.values, labels=display_index, autopct='%1.1f%%',
                 colors=colors, startangle=90, textprops={'fontsize': 14})
+        for text in texts:
+            text.set_color('black')
         ax1.set_title("Churned vs Retained", fontsize=16)
         st.pyplot(fig1)
 
@@ -202,16 +204,13 @@ elif page == "Visualization 📊":
     with tab3:
         st.subheader("Correlation Matrix")
         st.write("Interactive heatmap allows you to hover over cells to see the exact correlation coefficient.")
-        df_vis["Partner_"] = df_vis["Partner"].astype("category").cat.codes
-        df_vis["Churn_"] = df_vis["Churn"].astype("category").cat.codes
-        df_vis["Contract_"] = df_vis["Contract"].astype("category").cat.codes
-        df_vis["InternetService_"] = df_vis["InternetService"].astype("category").cat.codes
-        df_vis["Dependents_"] = df_vis["Dependents"].astype("category").cat.codes
-        df_vis["PaymentMethod_"] = df_vis["PaymentMethod"].astype("category").cat.codes
-        numeric_cols = df_vis.select_dtypes(include=[np.number]).columns.tolist()
-        corr = df_vis[numeric_cols].corr()
+        # make a copy so we don't add encoded columns back into df_vis
+        df_corr = df_vis.copy()
+        for col in ['Partner','Churn','Contract','InternetService','Dependents','PaymentMethod']:
+            df_corr[col] = df_corr[col].astype('category').cat.codes
+        numeric_cols = df_corr.select_dtypes(include=[np.number]).columns.tolist()
+        corr = df_corr[numeric_cols].corr()
         
-            
         fig3, ax3 = plt.subplots(figsize=(10, 6))
         sns.heatmap(corr, annot=True, cmap='Blues', fmt=".2f", ax=ax3)
         ax3.set_title("Correlation Heatmap")
@@ -226,8 +225,9 @@ elif page == "Visualization 📊":
             res.columns = ['InternetService', 'Churn Rate (%)']
             return res
         churn_by_internet = compute_by_internet(df_vis)
+        churn_by_internet = churn_by_internet.sort_values('Churn Rate (%)', ascending=False)
         fig4, ax4 = plt.subplots(figsize=(10, 5))
-        sns.barplot(data=churn_by_internet, x='InternetService', y='Churn Rate (%)', ax=ax4, palette='coolwarm')
+        sns.barplot(data=churn_by_internet, x='InternetService', y='Churn Rate (%)', ax=ax4, palette='Reds_r')
         ax4.set_title("Churn Rate by Internet Service", fontsize=16)
         ax4.set_ylabel("Churn Rate (%)")
         ax4.set_xlabel("Internet Service")
@@ -262,31 +262,91 @@ elif page == "Visualization 📊":
     with tab6:
         st.subheader("Data Quality Checks")
         units = {'tenure': 'months', 'MonthlyCharges': 'USD', 'TotalCharges': 'USD'}
-        numeric_cols = df_vis.select_dtypes(include=[np.number]).columns
-        for col in numeric_cols:
+        # examine only the original numeric columns; drop any artificial encoded fields
+        numeric_check_cols = ['SeniorCitizen', 'tenure', 'MonthlyCharges', 'TotalCharges']
+        
+        # Collect all unique categorical values to create consistent color mapping
+        all_cat_values = set()
+        all_cat_values.update(['non-senior', 'senior'])  # SeniorCitizen values
+        nonnum = df_vis.select_dtypes(include=['object', 'category']).columns.tolist()
+        nonnum = [c for c in nonnum if c not in ('customerID', 'Churn', 'gender', 'Partner')]
+        for col in nonnum:
+            all_cat_values.update(df_vis[col].astype(str).unique())
+        
+        # Create blue gradient color map (darker shades for later values in sorted order)
+        import matplotlib.cm as cm
+        sorted_values = sorted(all_cat_values)
+        n_values = len(sorted_values)
+        blue_cmap = cm.get_cmap('Blues')
+        colors_map = {}
+        for i, val in enumerate(sorted_values):
+            # Range from 0.3 (light) to 0.9 (dark) for visibility
+            shade = 0.3 + 0.6 * (i / max(1, n_values - 1))
+            colors_map[val] = blue_cmap(shade)
+        
+        def autopct_format(values):
+            def inner(pct):
+                total = sum(values)
+                val = int(round(pct * total / 100.0))
+                return f"{pct:.1f}%\n({val})"
+            return inner
+
+        senior_citizen_counts = None
+        for col in numeric_check_cols:
             if col == 'SeniorCitizen':
-                # boolean bar chart
-                counts = df_vis[col].value_counts().sort_index()
-                labels = ['non-senior', 'senior']
-                figb, axb = plt.subplots()
-                sns.barplot(x=labels, y=counts.values, ax=axb)
-                axb.set_title("Senior citizen distribution")
-                axb.set_ylabel("Count")
-                st.pyplot(figb)
+                senior_citizen_counts = df_vis[col].value_counts().sort_index()
                 continue
             elif col == 'tenure':
+                # tenure is continuous, show histogram
+                fig, ax = plt.subplots()
+                sns.histplot(df_vis[col].dropna(), bins=30, kde=False, ax=ax)
+                ax.set_title(f"Distribution of {col}")
+                if col in units:
+                    ax.set_xlabel(units[col])
+                st.pyplot(fig)
+                mean = df_vis[col].mean()
+                std = df_vis[col].std()
+                outliers = df_vis[(df_vis[col] < mean - 3 * std) | (df_vis[col] > mean + 3 * std)]
+                if not outliers.empty:
+                    st.write(f"{len(outliers)} extreme values found in {col} (beyond 3σ)")
                 continue
-            fig, ax = plt.subplots()
-            sns.histplot(df_vis[col].dropna(), kde=False, ax=ax)
-            ax.set_title(f"Distribution of {col}")
-            if col in units:
-                ax.set_xlabel(units[col])
-            st.pyplot(fig)
-            mean = df_vis[col].mean()
-            std = df_vis[col].std()
-            outliers = df_vis[(df_vis[col] < mean - 3 * std) | (df_vis[col] > mean + 3 * std)]
-            if not outliers.empty:
-                st.write(f"{len(outliers)} extreme values found in {col} (beyond 3σ)")
+            else:
+                fig, ax = plt.subplots()
+                sns.histplot(df_vis[col].dropna(), kde=False, ax=ax)
+                ax.set_title(f"Distribution of {col}")
+                if col in units:
+                    ax.set_xlabel(units[col])
+                st.pyplot(fig)
+                mean = df_vis[col].mean()
+                std = df_vis[col].std()
+                outliers = df_vis[(df_vis[col] < mean - 3 * std) | (df_vis[col] > mean + 3 * std)]
+                if not outliers.empty:
+                    st.write(f"{len(outliers)} extreme values found in {col} (beyond 3σ)")
+        # for non-numeric columns, show a pie chart of value counts
+        for col in nonnum:
+            counts = df_vis[col].value_counts()
+            colors = [colors_map[str(val)] for val in counts.index]
+            figp, axp = plt.subplots()
+            wedges, texts, autotexts = axp.pie(counts.values,
+                    labels=counts.index,
+                    autopct=autopct_format(counts.values),
+                    colors=colors,
+                    textprops={'color': 'white', 'weight': 'bold'})
+            for text in texts:
+                text.set_color('black')
+            axp.set_title(f"{col} distribution")
+            st.pyplot(figp)
+        
+        # Add senior citizen distribution note at bottom
+        st.markdown("---")
+        st.markdown("#### Senior Citizen Distribution")
+        if senior_citizen_counts is not None:
+            non_senior = senior_citizen_counts.get(0, 0)
+            senior = senior_citizen_counts.get(1, 0)
+            total = non_senior + senior
+            non_senior_pct = (non_senior / total * 100) if total > 0 else 0
+            senior_pct = (senior / total * 100) if total > 0 else 0
+            st.write(f"**Non-senior:** {non_senior:,} ({non_senior_pct:.1f}%) | **Senior:** {senior:,} ({senior_pct:.1f}%)")
 
 
 elif page == "Prediction 🤖":
@@ -333,6 +393,14 @@ elif page == "Prediction 🤖":
 
     # Metrics
     st.markdown("### Model Performance")
+    st.markdown(
+        "**All of the following metrics range from 0 to 1 – higher is better.**\n\n"
+        "- **Accuracy:** overall fraction of correct predictions.\n"
+        "- **Precision:** of the customers predicted to churn, how many actually churned.\n"
+        "- **Recall:** of the customers who truly churned, how many were correctly identified.\n"
+        "- **F1 Score:** harmonic mean of precision and recall, useful when classes are imbalanced.\n"
+        "- **AUC‑ROC:** area under the ROC curve; measures the trade‑off between true positive and false positive rates."
+    )
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Accuracy", f"{accuracy_score(y_test, y_pred):.3f}")
     col2.metric("Precision", f"{precision_score(y_test, y_pred):.3f}")
@@ -395,10 +463,17 @@ elif page == "Prediction 🤖":
 
     # single record prediction
     st.markdown("### Make a prediction on new customer data")
+    units = {'tenure': 'months', 'MonthlyCharges': 'USD', 'TotalCharges': 'USD'}
     with st.form(key='single_pred'):
         entries = {}
         for col in numeric_cols:
-            entries[col] = st.number_input(col, value=float(df[col].mean()))
+            if col == 'SeniorCitizen':
+                # Show as Yes/No dropdown instead of numeric input
+                senior_choice = st.selectbox("SeniorCitizen", ["No", "Yes"])
+                entries[col] = 1 if senior_choice == "Yes" else 0
+            else:
+                label = f"{col} ({units.get(col, '')})" if col in units else col
+                entries[col] = st.number_input(label, value=float(df[col].mean()))
         for col in categorical_cols:
             options = df[col].unique().tolist()
             entries[col] = st.selectbox(col, options)
