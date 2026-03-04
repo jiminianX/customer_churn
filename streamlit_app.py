@@ -299,18 +299,6 @@ elif page == "Visualization 📊":
                 senior_citizen_counts = df_vis[col].value_counts().sort_index()
                 continue
             elif col == 'tenure':
-                # tenure is continuous, show histogram
-                fig, ax = plt.subplots()
-                sns.histplot(df_vis[col].dropna(), bins=30, kde=False, ax=ax)
-                ax.set_title(f"Distribution of {col}")
-                if col in units:
-                    ax.set_xlabel(units[col])
-                st.pyplot(fig)
-                mean = df_vis[col].mean()
-                std = df_vis[col].std()
-                outliers = df_vis[(df_vis[col] < mean - 3 * std) | (df_vis[col] > mean + 3 * std)]
-                if not outliers.empty:
-                    st.write(f"{len(outliers)} extreme values found in {col} (beyond 3σ)")
                 continue
             else:
                 fig, ax = plt.subplots()
