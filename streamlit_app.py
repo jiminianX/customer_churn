@@ -359,12 +359,10 @@ elif page == "Visualization 📊":
 elif page == "Prediction 🤖":
     st.subheader("Churn Prediction — Logistic Regression")
 
-    # allow the user to tweak split and regularization
-    st.sidebar.markdown("---")
-    st.sidebar.write("### Model settings")
-    test_size = st.sidebar.slider("Test set fraction", 0.1, 0.5, 0.2)
-    C_val = st.sidebar.slider("Inverse regularization (C)", 0.01, 10.0, 1.0)
-    solver = st.sidebar.selectbox("Solver", ["lbfgs", "liblinear"], index=0)
+    # fixed model settings
+    test_size = 0.2
+    C_val = 1.0
+    solver = "lbfgs"
 
     # prepare data
     df2 = df.drop(columns=['customerID']).dropna().copy()
