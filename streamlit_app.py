@@ -423,7 +423,7 @@ elif page == "Prediction 🤖":
     st.markdown("### Confusion Matrix")
     cm = confusion_matrix(y_test, y_pred)
     actual_labels = ['churned (left)' if c == 'Yes' else 'retained (stayed)' for c in le_churn.classes_]
-    predicted_labels = ['churn (leave)', 'retain (stay)']
+    predicted_labels = ['retain (stay)','churn (leave)']
     fig_cm, ax_cm = plt.subplots(figsize=(8, 6))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax_cm,
                 xticklabels=predicted_labels, yticklabels=actual_labels)
