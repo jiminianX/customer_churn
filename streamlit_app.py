@@ -11,8 +11,8 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, f1_score, roc_auc_score, classification_report
-from sklearn.metrics import roc_curve, precision_recall_curve
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, classification_report
+from sklearn.metrics import precision_recall_curve
 
 st.set_page_config(
     page_title="Telco Customer Churn Analysis 📡",
@@ -48,6 +48,8 @@ def load_data(path='WA_Fn-UseC_-Telco-Customer-Churn.csv'):
 if page == "Business Case 📘":
 
     st.subheader("Telco Customer Churn Dashboard")
+
+    st.image("Gemini_Generated_Image_l7ijjel7ijjel7ij.png", use_container_width=True)
 
     # dataset provenance
     st.markdown("[🔗 View dataset source on Kaggle](https://www.kaggle.com/datasets/blastchar/telco-customer-churn)")
@@ -397,29 +399,15 @@ elif page == "Prediction 🤖":
         "**All of the following metrics range from 0 to 1 – higher is better.**\n\n"
         "- **Accuracy:** overall fraction of correct predictions.\n"
         "- **Precision:** of the customers predicted to churn, how many actually churned.\n"
-        "- **Recall:** of the customers who truly churned, how many were correctly identified.\n"
-        "- **F1 Score:** harmonic mean of precision and recall, useful when classes are imbalanced.\n"
-        "- **AUC‑ROC:** area under the ROC curve; measures the trade‑off between true positive and false positive rates."
+        "- **Recall:** of the customers who truly churned, how many were correctly identified."
     )
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     col1.metric("Accuracy", f"{accuracy_score(y_test, y_pred):.3f}")
     col2.metric("Precision", f"{precision_score(y_test, y_pred):.3f}")
     col3.metric("Recall", f"{recall_score(y_test, y_pred):.3f}")
-    col4.metric("F1 Score", f"{f1_score(y_test, y_pred):.3f}")
-    st.metric("AUC-ROC", f"{roc_auc_score(y_test, y_prob):.3f}")
 
-    # ROC and PR curves
-    
-    fpr, tpr, _ = roc_curve(y_test, y_prob)
+    # Precision-Recall curve
     precision, recall, _ = precision_recall_curve(y_test, y_prob)
-
-    fig_roc, ax_roc = plt.subplots()
-    ax_roc.plot(fpr, tpr, label='ROC curve')
-    ax_roc.plot([0, 1], [0, 1], '--', color='grey')
-    ax_roc.set_xlabel('False Positive Rate')
-    ax_roc.set_ylabel('True Positive Rate')
-    ax_roc.set_title('ROC Curve')
-    st.pyplot(fig_roc)
 
     fig_pr, ax_pr = plt.subplots()
     ax_pr.plot(recall, precision, label='Precision-Recall curve')
@@ -431,10 +419,11 @@ elif page == "Prediction 🤖":
     # Confusion Matrix
     st.markdown("### Confusion Matrix")
     cm = confusion_matrix(y_test, y_pred)
-    labels = ['churned (left)' if c == 'Yes' else 'retained (stayed)' for c in le_churn.classes_]
+    actual_labels = ['churned (left)' if c == 'Yes' else 'retained (stayed)' for c in le_churn.classes_]
+    predicted_labels = ['churn (leave)', 'retain (stay)']
     fig_cm, ax_cm = plt.subplots(figsize=(8, 6))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax_cm,
-                xticklabels=labels, yticklabels=labels)
+                xticklabels=predicted_labels, yticklabels=actual_labels)
     ax_cm.set_xlabel('Predicted')
     ax_cm.set_ylabel('Actual')
     ax_cm.set_title('Churn Prediction Confusion Matrix')
