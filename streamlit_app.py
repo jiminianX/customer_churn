@@ -361,8 +361,6 @@ elif page == "Prediction 🤖":
 
     # fixed model settings
     test_size = 0.2
-    C_val = 1.0
-    solver = "lbfgs"
 
     # prepare data
     df2 = df.drop(columns=['customerID']).dropna().copy()
@@ -389,7 +387,7 @@ elif page == "Prediction 🤖":
     )
 
     model = Pipeline(steps=[('pre', preprocessor),
-                            ('clf', LogisticRegression(C=C_val, solver=solver, max_iter=1000))])
+                            ('clf', LogisticRegression(max_iter=1000))])
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size)
     model.fit(X_train, y_train)
